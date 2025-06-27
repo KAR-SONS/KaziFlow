@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <h2>📅 Your Orders for Today</h2>
+
+  {% if messages %}
+    {% for message in messages %}
+      <p style="color: red;">{{ message }}</p>
+    {% endfor %}
+  {% endif %}
+
+  {% if paid_orders %}
+    <h3 style="color: green;">✅ Paid Orders</h3>
+    {% for order in paid_orders %}
+      <hr/>
+      <strong>Product:</strong> {{ order.product_name }}<br/>
+      <strong>Customer:</strong> {{ order.customer_name }}<br/>
+      <strong>Status:</strong> {{ order.status }}<br/>
+      <strong>KES:</strong> {{ order.total_amount }}<br/>
+      <strong>Time:</strong> {{ order.order_date|date:"H:i" }}<br/>
+      <hr/>
+    {% endfor %}
+    <p style="color: green;"><strong>Total Paid:</strong> KES {{ total_paid }}</p>
+  {% else %}
+    <p>No paid orders today.</p>
+  {% endif %}
+
+  <br/>
+
+  {% if debt_orders %}
+    <h3 style="color: red;">💰 Debt Orders</h3>
+    {% for order in debt_orders %}
+      <hr/>
+      <strong>Product:</strong> {{ order.product_name }}<br/>
+      <strong>Customer:</strong> {{ order.customer_name }}<br/>
+      <strong>Status:</strong> {{ order.status }}<br/>
+      <strong>KES:</strong> {{ order.total_amount }}<br/>
+      <strong>Time:</strong> {{ order.order_date|date:"H:i" }}<br/>
+      <hr/>
+    {% endfor %}
+    <p style="color: rgb(155, 9, 9);"><strong>Total Debt:</strong> KES {{ total_debt }}</p>
+  {% else %}
+    <p>No debt orders today.</p>
+  {% endif %}
+{% endblock %}

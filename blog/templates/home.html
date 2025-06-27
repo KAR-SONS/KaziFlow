@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+{% load static %}
+<h1>Users Table</h1>
+
+{% for item in all%}
+<strong>{{ item.username }}</strong><br/>
+{{ item.email }}<br/>
+<hr/>
+{% endfor %}
+{% endblock %}

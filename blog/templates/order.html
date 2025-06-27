@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Create Your Order!</h1>
+<form method="POST" action="{% url 'order' %}">
+    {% csrf_token %}
+    <input type="hidden" name="phone" value="{{ phone }}">
+
+    <div class="mb-3">
+        <label class="form-label">Product Name</label>
+        <input type="text" class="form-control" name="product_name" placeholder="Enter product name">
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Customer Name</label>
+        <input type="text" class="form-control" name="customer_name" placeholder="Enter customer name">
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Payment Status</label>
+        <select class="form-select" name="status">
+            <option value="">Select status</option>
+            <option value="paid">Paid</option>
+            <option value="debt">Debt</option>
+        </select>
+    </div>
+
+    <div class="input-group mb-3">
+        <span class="input-group-text">KSh</span>
+        <input type="text" class="form-control" name="total_amount" placeholder="Enter the amount">
+        <span class="input-group-text">.00</span>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Submit</button>
+</form>
+{% endblock %}
