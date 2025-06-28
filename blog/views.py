@@ -3,12 +3,16 @@ from django.views.decorators.csrf import csrf_exempt
 from django.http import HttpResponse
 from django.utils.http import urlencode
 from twilio.twiml.messaging_response import MessagingResponse
-from .models import User, Order
+from .models import User, Order, Subscription, Payment, normalize_phone
 from .forms import UserForm, OrderForm
 from django.contrib import messages
 from django.utils import timezone
-from datetime import datetime
+from datetime import datetime, timedelta
 from django.db.models import Sum
+from .pesapal import make_order  
+import requests
+from .pesapal import get_access_token  
+from django.urls import reverse
 
 
 def home(request):
@@ -22,10 +26,19 @@ def join(request):
         if form.is_valid():
             user = form.save()
 
-            # After saving user, redirect to WhatsApp with a custom message
-            message = f"Thanks for signing up {user.username}! You can now place orders by texting me here."
+            # ✅ Add 3-day trial subscription if one doesn't exist
+            if not Subscription.objects.filter(user=user).exists():
+                Subscription.objects.create(
+                    user=user,
+                    start_date=timezone.now(),
+                    end_date=timezone.now() + timedelta(days=3),
+                    status='active'
+                )
+
+            # ✅ Redirect to WhatsApp with a message
+            message = f"Thanks for signing up {user.username}! You have a 3-day free trial. Start placing orders by texting me here."
             encoded_message = urlencode({'text': message})
-            whatsapp_number = '14155238886'  # Replace with your Twilio sandbox number (no "+")
+            whatsapp_number = '14155238886'  # Replace with your Twilio sandbox number
 
             wa_link = f"https://wa.me/{whatsapp_number}/?{encoded_message}"
             return redirect(wa_link)
@@ -36,6 +49,7 @@ def join(request):
         form = UserForm(initial={'phone': phone})
 
     return render(request, 'join.html', {'form': form})
+
 def order(request):
     # This function would handle order-related logic
     # For now, we can just render a placeholder template
@@ -88,11 +102,23 @@ def order_list(request):
         'total_debt': total_debt,
     })
 
-def subscription(request):
-    # This function would handle subscription-related logic
-    # For now, we can just render a placeholder template
-    return render(request, 'subscription.html')
+def start_subscription(request):
+    phone = request.GET.get('phone')
+    user = User.objects.filter(phone=phone).first()
 
+    if not user:
+        return HttpResponse("User not found")
+
+    email = user.email
+    amount = 20
+    callback_url = request.build_absolute_uri(reverse('pesapal_callback'))
+
+    try:
+        result = make_order(email, amount, phone, callback_url)
+        return redirect(result['redirect_url'])
+    except Exception as e:
+        return HttpResponse(f"Error: {str(e)}")
+    
 @csrf_exempt
 def whatsapp_webhook(request):
     if request.method == 'POST':
@@ -107,19 +133,88 @@ def whatsapp_webhook(request):
         if not user:
             resp.message(
                 f"👋 Welcome! You're new here.\n"
-                f"Please sign up here: https://568c-196-96-116-22.ngrok-free.app/join?phone={phone}"
+                f"Please sign up here: https://1a64-2c0f-fe38-2250-366c-6641-c444-87ed-f9fc.ngrok-free.app/join?phone={phone}"
             )
         else:
+            # ✅ Check user's subscription
+            subscription = Subscription.objects.filter(user=user).first()
+            now = timezone.now()
+
+            has_access = subscription and subscription.status == 'active' and subscription.end_date > now
+
             if message_body == 'help':
-                resp.message(
-                    f"Here are your options:"
-                    f"\n1. Create Order: https://568c-196-96-116-22.ngrok-free.app/order?phone={phone}"
-                    f"\n2. View Sales: https://568c-196-96-116-22.ngrok-free.app/order_list?phone={phone}"
-                    f"\n3. Pay for Subscription"
-                )
+                if has_access:
+                    resp.message(
+                        f"Here are your options:"
+                        f"\n1. Create Order: https://1a64-2c0f-fe38-2250-366c-6641-c444-87ed-f9fc.ngrok-free.app/order?phone={phone}"
+                        f"\n2. View Sales: https://1a64-2c0f-fe38-2250-366c-6641-c444-87ed-f9fc.ngrok-free.app/order_list?phone={phone}"
+                        f"\n3. Pay for Subscription"
+                    )
+                else:
+                    resp.message(
+                        "❌ Your subscription is inactive or expired.\n"
+                        "Please pay here to continue: https://1a64-2c0f-fe38-2250-366c-6641-c444-87ed-f9fc.ngrok-free.app/start_subscription?phone=" + phone
+                    )
             else:
                 resp.message("👋 Welcome back! Type 'help' for options.")
 
         return HttpResponse(str(resp), content_type='application/xml')
 
     return HttpResponse("Invalid request", status=400)
+
+@csrf_exempt
+def pesapal_callback(request):
+    tracking_id = request.GET.get('OrderTrackingId')
+    merchant_reference = normalize_phone(request.GET.get('OrderMerchantReference'))  # your phone number
+
+    if not tracking_id or not merchant_reference:
+        return HttpResponse("❌ Missing tracking ID or merchant reference", status=400)
+
+    # Confirm payment with Pesapal
+    try:
+        token = get_access_token()
+        response = requests.get(
+            f"https://pay.pesapal.com/v3/api/Transactions/GetTransactionStatus?orderTrackingId={tracking_id}",
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Accept": "application/json"
+            }
+        )
+        status_info = response.json()
+    except Exception as e:
+        return HttpResponse(f"❌ Failed to verify payment: {str(e)}", status=500)
+
+    payment_status = status_info.get("payment_status_description")
+    amount = status_info.get("amount")
+
+    if payment_status != "Completed":
+        return HttpResponse(f"❌ Payment not completed: {payment_status}", status=400)
+
+    # Get user by phone
+    user = User.objects.filter(phone=merchant_reference).first()
+    if not user:
+        return HttpResponse("❌ User not found", status=404)
+
+    # Update or create subscription
+    now = timezone.now()
+    sub, _ = Subscription.objects.get_or_create(user=user)
+    if sub.end_date and sub.end_date > now:
+        sub.end_date += timedelta(days=30)
+    else:
+        sub.start_date = now
+        sub.end_date = now + timedelta(days=30)
+    sub.status = 'active'
+    sub.save()
+
+    # Log the payment
+    Payment.objects.update_or_create(
+        tracking_id=tracking_id,
+        defaults={
+            'user': user,
+            'reference': merchant_reference,
+            'amount': amount,
+            'status': payment_status
+        }
+    )
+
+    return HttpResponse(f"✅ Subscription activated for {user.username}")

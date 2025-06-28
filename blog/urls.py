@@ -6,6 +6,7 @@ urlpatterns = [
    path('join', views.join, name='join'),
    path('order', views.order, name='order'),
    path('order_list', views.order_list, name='order_list'),
-   path('subscription', views.subscription, name='subscription'),
+   path('start_subscription/', views.start_subscription, name='start_subscription'),
+   path('pesapal-callback/', views.pesapal_callback, name='pesapal_callback'),
    path('whatsapp/', views.whatsapp_webhook),
 ]

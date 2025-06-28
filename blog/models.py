@@ -2,7 +2,7 @@ from django.db import models
 
 class User(models.Model):
     username = models.CharField(max_length=100, unique=True)
-    phone = models.CharField(max_length=15, unique=False, default='0712345678')  # Assuming phone numbers are unique
+    phone = models.CharField(max_length=15, unique=True)  
     email = models.EmailField(unique=True)
     password = models.CharField(max_length=128)  # You might use Django's default auth system instead
     created_at = models.DateTimeField(auto_now_add=True)
@@ -41,3 +41,22 @@ class Subscription(models.Model):
 
     def __str__(self):
         return f"Subscription for {self.user.username} ({self.status})"
+
+class Payment(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    tracking_id = models.CharField(max_length=255, unique=True)
+    reference = models.CharField(max_length=255)  # phone
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    status = models.CharField(max_length=100)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Payment {self.tracking_id} for {self.user.username} - {self.status}"
+
+def normalize_phone(phone):
+    phone = phone.strip().replace("+", "").replace(" ", "")
+    if phone.startswith("07") and len(phone) == 10:
+        return "254" + phone[1:]
+    elif phone.startswith("01") and len(phone) == 10:
+        return "254" + phone[1:]
+    return phone
