@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 
 class User(models.Model):
     username = models.CharField(max_length=100, unique=True)
@@ -52,6 +53,15 @@ class Payment(models.Model):
 
     def __str__(self):
         return f"Payment {self.tracking_id} for {self.user.username} - {self.status}"
+
+class PendingPayment(models.Model):
+    user = models.ForeignKey('User', on_delete=models.CASCADE)
+    order_id = models.CharField(max_length=255, unique=True)  # This is the Pesapal order UUID
+    created_at = models.DateTimeField(default=timezone.now)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.order_id}"
+
 
 def normalize_phone(phone):
     phone = phone.strip().replace("+", "").replace(" ", "")

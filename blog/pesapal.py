@@ -1,7 +1,8 @@
 import uuid
 import requests
 from django.conf import settings
-from .models import normalize_phone
+from .models import normalize_phone, PendingPayment, User
+import json
 
 # Sandbox endpoint — change to live URL when you're ready
 PESAPAL_API_BASE = 'https://pay.pesapal.com/v3'
@@ -43,11 +44,11 @@ def make_order(user_email, amount, phone_number, callback_url):
         "amount": amount,
         "description": "KaziFlow Monthly Subscription",
         "callback_url": callback_url,
-        "notification_id": settings.PESAPAL_IPN_ID,  # IPN is optional unless you're using it
-        "merchant_reference": normalized_phone,  # ✅ THIS IS WHAT PESA RETURNS TO CALLBACK
+        "notification_id": settings.PESAPAL_IPN_ID,
+        "merchant_reference": order_id,  # ✅ Use UUID here
         "billing_address": {
             "email_address": user_email,
-            "phone_number":normalized_phone,
+            "phone_number": normalized_phone,
             "country_code": "KE",
             "first_name": "Customer",
             "last_name": "User",
@@ -66,10 +67,14 @@ def make_order(user_email, amount, phone_number, callback_url):
         raise Exception(f"Invalid JSON from Pesapal: {response.text}")
 
     if response.status_code == 200 and data and 'redirect_url' in data:
+        # Save pending payment
+        user = User.objects.get(email=user_email)
+        PendingPayment.objects.create(user=user, order_id=order_id)
+
         return {
             'order_tracking_id': data.get('order_tracking_id'),
             'redirect_url': data.get('redirect_url'),
-            'merchant_reference': phone_number
+            'merchant_reference': order_id
         }
     else:
         raise Exception(f"Pesapal order error: {data or response.text}")

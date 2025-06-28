@@ -3,13 +3,13 @@ from django.views.decorators.csrf import csrf_exempt
 from django.http import HttpResponse
 from django.utils.http import urlencode
 from twilio.twiml.messaging_response import MessagingResponse
-from .models import User, Order, Subscription, Payment, normalize_phone
+from .models import User, Order, Subscription, Payment, PendingPayment
 from .forms import UserForm, OrderForm
 from django.contrib import messages
 from django.utils import timezone
 from datetime import datetime, timedelta
 from django.db.models import Sum
-from .pesapal import make_order  
+from .pesapal import make_order , get_transaction_status
 import requests
 from .pesapal import get_access_token  
 from django.urls import reverse
@@ -165,37 +165,30 @@ def whatsapp_webhook(request):
 @csrf_exempt
 def pesapal_callback(request):
     tracking_id = request.GET.get('OrderTrackingId')
-    merchant_reference = normalize_phone(request.GET.get('OrderMerchantReference'))  # your phone number
+    merchant_reference = request.GET.get('OrderMerchantReference')  # This is now order_id
 
     if not tracking_id or not merchant_reference:
         return HttpResponse("❌ Missing tracking ID or merchant reference", status=400)
 
-    # Confirm payment with Pesapal
     try:
-        token = get_access_token()
-        response = requests.get(
-            f"https://pay.pesapal.com/v3/api/Transactions/GetTransactionStatus?orderTrackingId={tracking_id}",
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Accept": "application/json"
-            }
-        )
-        status_info = response.json()
+        payment_info = get_transaction_status(tracking_id)
     except Exception as e:
         return HttpResponse(f"❌ Failed to verify payment: {str(e)}", status=500)
 
-    payment_status = status_info.get("payment_status_description")
-    amount = status_info.get("amount")
+    payment_status = payment_info.get("payment_status_description")
+    amount = payment_info.get("amount")
 
     if payment_status != "Completed":
         return HttpResponse(f"❌ Payment not completed: {payment_status}", status=400)
 
-    # Get user by phone
-    user = User.objects.filter(phone=merchant_reference).first()
-    if not user:
-        return HttpResponse("❌ User not found", status=404)
+    # ✅ Find user via PendingPayment
+    pending = PendingPayment.objects.filter(order_id=merchant_reference).first()
+    if not pending:
+        return HttpResponse("❌ No pending payment found", status=404)
 
-    # Update or create subscription
+    user = pending.user
+
+    # Update subscription
     now = timezone.now()
     sub, _ = Subscription.objects.get_or_create(user=user)
     if sub.end_date and sub.end_date > now:
@@ -216,5 +209,8 @@ def pesapal_callback(request):
             'status': payment_status
         }
     )
+
+    # ✅ Optionally delete the pending payment
+    pending.delete()
 
     return HttpResponse(f"✅ Subscription activated for {user.username}")
