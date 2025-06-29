@@ -1,4 +1,4 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
 from django.http import HttpResponse
 from django.utils.http import urlencode
@@ -10,10 +10,15 @@ from django.utils import timezone
 from datetime import datetime, timedelta
 from django.db.models import Sum
 from .pesapal import make_order , get_transaction_status
-import requests
 from .pesapal import get_access_token  
 from django.urls import reverse
 
+# PDF generation imports
+from django.http import FileResponse
+import io
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.units import inch
 
 def home(request):
     # Example of querying the User model
@@ -67,7 +72,7 @@ def order(request):
             order.user = user  # Set the user using the phone
             order.save()  # order_date is auto-set by auto_now_add
             messages.success(request, "✅ Order placed successfully!")
-            return redirect('order_list')  # or your own confirmation page
+            return redirect(f'/order_list?phone={phone}')  # or your own confirmation page
     else:
         form = OrderForm()
 
@@ -118,7 +123,37 @@ def start_subscription(request):
         return redirect(result['redirect_url'])
     except Exception as e:
         return HttpResponse(f"Error: {str(e)}")
-    
+
+def order_receipt(request, order_id):
+    order = Order.objects.get(id=order_id)
+
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf, pagesize=letter, bottomup=0)
+    textob = c.beginText()
+    textob.setTextOrigin(inch, inch)
+    textob.setFont("Helvetica", 14)
+
+    lines = [
+        "🧾 Order Receipt",
+        "-------------------------",
+        f"Order ID: {order.id}",
+        f"Customer: {order.customer_name}",
+        f"Product: {order.product_name}",
+        f"Status: {order.status}",
+        f"Amount: KES {order.total_amount}",
+        f"Date: {order.order_date.strftime('%Y-%m-%d %H:%M')}",
+    ]
+
+    for line in lines:
+        textob.textLine(line)
+
+    c.drawText(textob)
+    c.showPage()
+    c.save()
+    buf.seek(0)
+
+    return FileResponse(buf, as_attachment=True, filename=f"receipt_order_{order.customer_name}.pdf")
+
 @csrf_exempt
 def whatsapp_webhook(request):
     if request.method == 'POST':
@@ -133,7 +168,7 @@ def whatsapp_webhook(request):
         if not user:
             resp.message(
                 f"👋 Welcome! You're new here.\n"
-                f"Please sign up here: https://1a64-2c0f-fe38-2250-366c-6641-c444-87ed-f9fc.ngrok-free.app/join?phone={phone}"
+                f"Please sign up here: https://f0ef-2c0f-fe38-2250-366c-1bbc-faed-2caf-b56c.ngrok-free.app/join?phone={phone}"
             )
         else:
             # ✅ Check user's subscription
@@ -146,14 +181,14 @@ def whatsapp_webhook(request):
                 if has_access:
                     resp.message(
                         f"Here are your options:"
-                        f"\n1. Create Order: https://1a64-2c0f-fe38-2250-366c-6641-c444-87ed-f9fc.ngrok-free.app/order?phone={phone}"
-                        f"\n2. View Sales: https://1a64-2c0f-fe38-2250-366c-6641-c444-87ed-f9fc.ngrok-free.app/order_list?phone={phone}"
+                        f"\n1. Create Order: https://f0ef-2c0f-fe38-2250-366c-1bbc-faed-2caf-b56c.ngrok-free.app/order?phone={phone}"
+                        f"\n2. View Sales: https://f0ef-2c0f-fe38-2250-366c-1bbc-faed-2caf-b56c.ngrok-free.app/order_list?phone={phone}"
                         f"\n3. Pay for Subscription"
                     )
                 else:
                     resp.message(
                         "❌ Your subscription is inactive or expired.\n"
-                        "Please pay here to continue: https://1a64-2c0f-fe38-2250-366c-6641-c444-87ed-f9fc.ngrok-free.app/start_subscription?phone=" + phone
+                        "Please pay here to continue: https://f0ef-2c0f-fe38-2250-366c-1bbc-faed-2caf-b56c.ngrok-free.app/start_subscription?phone=" + phone
                     )
             else:
                 resp.message("👋 Welcome back! Type 'help' for options.")
@@ -214,3 +249,13 @@ def pesapal_callback(request):
     pending.delete()
 
     return HttpResponse(f"✅ Subscription activated for {user.username}")
+
+@csrf_exempt  # optional if you're already using CSRF token
+def mark_as_paid(request):
+    if request.method == 'POST':
+        order_id = request.POST.get('order_id')
+        order = get_object_or_404(Order, id=order_id)
+        order.status = 'paid'
+        order.save()
+        messages.success(request, f"✅ Order for {order.customer_name} marked as paid.")
+        return redirect(f'/order_list?phone={order.user.phone}')

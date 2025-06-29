@@ -9,4 +9,6 @@ urlpatterns = [
    path('start_subscription/', views.start_subscription, name='start_subscription'),
    path('pesapal-callback/', views.pesapal_callback, name='pesapal_callback'),
    path('whatsapp/', views.whatsapp_webhook),
+   path('mark_as_paid/', views.mark_as_paid, name='mark_as_paid'),
+   path('order_receipt/<int:order_id>/', views.order_receipt, name='order_receipt'),
 ]

@@ -2,13 +2,7 @@
 
 {% block content %}
   <h2>📅 Your Orders for Today</h2>
-
-  {% if messages %}
-    {% for message in messages %}
-      <p style="color: red;">{{ message }}</p>
-    {% endfor %}
-  {% endif %}
-
+  
   {% if paid_orders %}
     <h3 style="color: green;">✅ Paid Orders</h3>
     {% for order in paid_orders %}
@@ -18,6 +12,11 @@
       <strong>Status:</strong> {{ order.status }}<br/>
       <strong>KES:</strong> {{ order.total_amount }}<br/>
       <strong>Time:</strong> {{ order.order_date|date:"H:i" }}<br/>
+      <br/>
+      <form method="GET" action="{% url 'order_receipt' order.id %}">
+        <button type="submit" class="btn btn-primary">Send Receipt</button>
+      </form>
+      
       <hr/>
     {% endfor %}
     <p style="color: green;"><strong>Total Paid:</strong> KES {{ total_paid }}</p>
@@ -36,6 +35,13 @@
       <strong>Status:</strong> {{ order.status }}<br/>
       <strong>KES:</strong> {{ order.total_amount }}<br/>
       <strong>Time:</strong> {{ order.order_date|date:"H:i" }}<br/>
+      <br/>
+      <form method="POST" action="{% url 'mark_as_paid' %}">
+        {% csrf_token %}
+        <input type="hidden" name="order_id" value="{{ order.id }}">
+        <button type="submit" class="btn btn-primary">Mark as Paid</button>
+      </form>
+      
       <hr/>
     {% endfor %}
     <p style="color: rgb(165, 9, 9);"><strong>Total Debt:</strong> KES {{ total_debt }}</p>
