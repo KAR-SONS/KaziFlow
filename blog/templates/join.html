@@ -8,7 +8,7 @@
 
     <div class="mb-3">
         <label for="exampleInputUsername1" class="form-label">Username</label>
-        <input type="text" class="form-control" placeholder="Enter username" name="username" value="{{ username|default_if_none:'' }}">
+        <input type="text" class="form-control" placeholder="Enter Company Name / Username" name="username" value="{{ username|default_if_none:'' }}">
         {% if username_error %}
         <div class="alert alert-danger mt-2" role="alert">
             {{ username_error }}

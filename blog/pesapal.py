@@ -100,7 +100,7 @@ def register_ipn_url():
     }
 
     data = {
-        "url": "https://dc6f-196-96-168-243.ngrok-free.app/pesapal-callback/",  # replace with your actual callback
+        "url": "https://7d06-196-96-168-243.ngrok-free.app/pesapal-callback/",  # replace with your actual callback
         "ipn_notification_type": "POST"
     }
 

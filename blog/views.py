@@ -13,6 +13,9 @@ from .pesapal import make_order , get_transaction_status
 from .pesapal import get_access_token  
 from django.urls import reverse
 from django.utils.timezone import make_aware
+import logging
+
+logger = logging.getLogger(__name__)
 
 # PDF generation imports
 from django.http import FileResponse
@@ -125,29 +128,61 @@ def start_subscription(request):
     except Exception as e:
         return HttpResponse(f"Error: {str(e)}")
 
+from reportlab.lib.pagesizes import A5
+
 def order_receipt(request, order_id):
     order = Order.objects.get(id=order_id)
 
     buf = io.BytesIO()
-    c = canvas.Canvas(buf, pagesize=letter, bottomup=0)
-    textob = c.beginText()
-    textob.setTextOrigin(inch, inch)
-    textob.setFont("Helvetica", 14)
 
-    lines = [
-            "🧾 Order Receipt",
-        "-------------------------",
+    # Use A5 page size
+    page_width, page_height = A5
+    c = canvas.Canvas(buf, pagesize=A5, bottomup=0)
+
+    # Draw border
+    margin = 30
+    c.setStrokeColorRGB(0.2, 0.2, 0.2)
+    c.setLineWidth(1.2)
+    c.rect(margin, margin, page_width - 2 * margin, page_height - 2 * margin)
+
+    # Text object
+    textob = c.beginText()
+    textob.setFont("Helvetica", 7)
+
+    # Start near top with reduced vertical space
+    start_y = margin + 40
+    textob.setTextOrigin(margin + 7, start_y)
+
+    # Center alignment helper
+    def center_line(text, font_size=7, bold=False):
+        font = "Helvetica-Bold" if bold else "Helvetica"
+        c.setFont(font, font_size)
+        text_width = c.stringWidth(text, font, font_size)
+        x = (page_width - text_width) / 2
+        y = textob.getY()
+        c.drawString(x, y, text)
+        textob.moveCursor(0, 6)  # Reduced line height
+
+    # Header and details
+    center_line("🧾 KaziFlow - Order Receipt", 12, bold=True)
+    center_line("-----------------------------", 10)
+
+    details = [
         f"Order ID: {order.id}",
         f"Customer: {order.customer_name}",
         f"Product: {order.product_name}",
         f"Status: {order.status}",
         f"Amount: KES {order.total_amount}",
         f"Date: {order.order_date.strftime('%Y-%m-%d %H:%M')}",
+        "",
+        f"Sold by: {order.user.username}"
     ]
 
-    for line in lines:
-        textob.textLine(line)
+    for line in details:
+        is_bold = line.startswith("Sold by:")
+        center_line(line, 10, bold=is_bold)
 
+    # Draw and return
     c.drawText(textob)
     c.showPage()
     c.save()
@@ -197,9 +232,14 @@ def filter_orders(request):
 @csrf_exempt
 def whatsapp_webhook(request):
     if request.method == 'POST':
-        from_number = request.POST.get('From')  # e.g., whatsapp:+2547xxxxxxx
-        message_body = request.POST.get('Body').strip().lower()
-        
+        logger.warning("RAW POST: %s", request.POST.dict())
+        from_number = request.POST.get('From')
+        message_body = request.POST.get('Body')
+
+        if not from_number or not message_body:
+            return HttpResponse("❌ Missing data", status=400)
+
+        message_body = message_body.strip().lower()
         phone = from_number.replace("whatsapp:", "").replace("+", "")
         user = User.objects.filter(phone=phone).first()
 
@@ -208,7 +248,7 @@ def whatsapp_webhook(request):
         if not user:
             resp.message(
                 f"👋 Welcome! You're new here.\n"
-                f"Please sign up here:https://dc6f-196-96-168-243.ngrok-free.app/join?phone={phone}"
+                f"Please sign up here:https://7d06-196-96-168-243.ngrok-free.app/join?phone={phone}"
             )
         else:
             # ✅ Check user's subscription
@@ -221,18 +261,28 @@ def whatsapp_webhook(request):
                 if has_access:
                     resp.message(
                         f"Here are your options:"
-                        f"\n1. Create Order:https://dc6f-196-96-168-243.ngrok-free.app/order?phone={phone}"
-                        f"\n2. View Sales:https://dc6f-196-96-168-243.ngrok-free.app/order_list?phone={phone}"
+                        f"\n1. Create Order: https://7d06-196-96-168-243.ngrok-free.app/order?phone={phone}"
+                        f"\n2. View Sales: https://7d06-196-96-168-243.ngrok-free.app/order_list?phone={phone}"
                         f"\n3. Pay for Subscription"
                     )
                 else:
                     resp.message(
                         "❌ Your subscription is inactive or expired.\n"
-                        "Please pay here to continue:https://dc6f-196-96-168-243.ngrok-free.app/start_subscription?phone=" + phone
+                        "Please pay here to continue: https://7d06-196-96-168-243.ngrok-free.app/start_subscription?phone=" + phone
                     )
+
+            elif message_body == '3':
+                if has_access:
+                    end_date_formatted = subscription.end_date.strftime('%Y-%m-%d')
+                    resp.message(f"✅ Your subscription is active until {end_date_formatted}.")
+                else:
+                    resp.message(
+                        "❌ Your subscription is inactive or expired.\n"
+                        "Pay here to activate: https://7d06-196-96-168-243.ngrok-free.app/start_subscription?phone=" + phone
+                    )
+
             else:
                 resp.message("👋 Welcome back! Type 'help' for options.")
-
         return HttpResponse(str(resp), content_type='application/xml')
 
     return HttpResponse("Invalid request", status=400)
