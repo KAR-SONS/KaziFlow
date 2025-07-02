@@ -11,4 +11,5 @@ urlpatterns = [
    path('whatsapp/', views.whatsapp_webhook),
    path('mark_as_paid/', views.mark_as_paid, name='mark_as_paid'),
    path('order_receipt/<int:order_id>/', views.order_receipt, name='order_receipt'),
+   path('filter_orders/', views.filter_orders, name='filter_orders'),
 ]

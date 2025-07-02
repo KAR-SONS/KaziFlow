@@ -1,6 +1,23 @@
 {% extends "base.html" %}
 
 {% block content %}
+<form method="GET" action="{% url 'filter_orders' %}">
+  <input type="hidden" name="phone" value="{{ phone }}">
+  <label>Start Date:</label>
+  <input type="date" name="start_date" value="{{ start_date }}">
+  <br/>
+  <label>End Date:</label>
+  <input type="date" name="end_date" value="{{ end_date }}">
+  <br/>
+  <br/>
+  <button type="submit" class="btn btn-sm btn-outline-primary">📅 Filter</button>
+  {% if filtered %}
+    <a href="{% url 'order_list' %}?phone={{ phone }}" class="btn btn-sm btn-outline-secondary">Clear</a>
+  {% endif %}
+</form>
+<br/>
+<br/>
+
   <h2>📅 Your Orders for Today</h2>
   
   {% if paid_orders %}

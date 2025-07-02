@@ -12,6 +12,7 @@ from django.db.models import Sum
 from .pesapal import make_order , get_transaction_status
 from .pesapal import get_access_token  
 from django.urls import reverse
+from django.utils.timezone import make_aware
 
 # PDF generation imports
 from django.http import FileResponse
@@ -134,7 +135,7 @@ def order_receipt(request, order_id):
     textob.setFont("Helvetica", 14)
 
     lines = [
-        "🧾 Order Receipt",
+            "🧾 Order Receipt",
         "-------------------------",
         f"Order ID: {order.id}",
         f"Customer: {order.customer_name}",
@@ -154,6 +155,45 @@ def order_receipt(request, order_id):
 
     return FileResponse(buf, as_attachment=True, filename=f"receipt_order_{order.customer_name}.pdf")
 
+def filter_orders(request):
+    phone = request.GET.get('phone')
+    user = User.objects.filter(phone=phone).first()
+
+    if not user:
+        messages.error(request, "❌ No user found with that phone number.")
+        return redirect('order_list')
+
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+
+    if not start_date or not end_date:
+        messages.error(request, "❌ Please provide both start and end dates.")
+        return redirect(f'/order_list?phone={phone}')
+
+    try:
+        start_datetime = make_aware(datetime.strptime(start_date, '%Y-%m-%d'))
+        end_datetime = make_aware(datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1))  # include end day
+    except ValueError:
+        messages.error(request, "❌ Invalid date format. Use YYYY-MM-DD.")
+        return redirect(f'/order_list?phone={phone}')
+
+    orders = Order.objects.filter(user=user, order_date__range=(start_datetime, end_datetime))
+    paid_orders = orders.filter(status='paid')
+    debt_orders = orders.filter(status='debt')
+
+    total_paid = paid_orders.aggregate(Sum('total_amount'))['total_amount__sum'] or 0
+    total_debt = debt_orders.aggregate(Sum('total_amount'))['total_amount__sum'] or 0
+
+    return render(request, 'order_list.html', {
+        'phone': phone,
+        'paid_orders': paid_orders,
+        'debt_orders': debt_orders,
+        'total_paid': total_paid,
+        'total_debt': total_debt,
+        'filtered': True,
+        'start_date': start_date,
+        'end_date': end_date,
+    })
 @csrf_exempt
 def whatsapp_webhook(request):
     if request.method == 'POST':
@@ -168,7 +208,7 @@ def whatsapp_webhook(request):
         if not user:
             resp.message(
                 f"👋 Welcome! You're new here.\n"
-                f"Please sign up here: https://f0ef-2c0f-fe38-2250-366c-1bbc-faed-2caf-b56c.ngrok-free.app/join?phone={phone}"
+                f"Please sign up here:https://dc6f-196-96-168-243.ngrok-free.app/join?phone={phone}"
             )
         else:
             # ✅ Check user's subscription
@@ -181,14 +221,14 @@ def whatsapp_webhook(request):
                 if has_access:
                     resp.message(
                         f"Here are your options:"
-                        f"\n1. Create Order: https://f0ef-2c0f-fe38-2250-366c-1bbc-faed-2caf-b56c.ngrok-free.app/order?phone={phone}"
-                        f"\n2. View Sales: https://f0ef-2c0f-fe38-2250-366c-1bbc-faed-2caf-b56c.ngrok-free.app/order_list?phone={phone}"
+                        f"\n1. Create Order:https://dc6f-196-96-168-243.ngrok-free.app/order?phone={phone}"
+                        f"\n2. View Sales:https://dc6f-196-96-168-243.ngrok-free.app/order_list?phone={phone}"
                         f"\n3. Pay for Subscription"
                     )
                 else:
                     resp.message(
                         "❌ Your subscription is inactive or expired.\n"
-                        "Please pay here to continue: https://f0ef-2c0f-fe38-2250-366c-1bbc-faed-2caf-b56c.ngrok-free.app/start_subscription?phone=" + phone
+                        "Please pay here to continue:https://dc6f-196-96-168-243.ngrok-free.app/start_subscription?phone=" + phone
                     )
             else:
                 resp.message("👋 Welcome back! Type 'help' for options.")
