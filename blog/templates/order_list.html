@@ -24,7 +24,10 @@
     <h3 style="color: green;">✅ Paid Orders</h3>
     {% for order in paid_orders %}
       <hr/>
-      <strong>Product:</strong> {{ order.product_name }}<br/>
+      <strong>Products:</strong>
+      {% for item in order.items.all %}
+        {{ item.product_name }} ({{ item.quantity }}){% if not forloop.last %}, {% endif %}
+      {% endfor %}
       <strong>Customer:</strong> {{ order.customer_name }}<br/>
       <strong>Status:</strong> {{ order.status }}<br/>
       <strong>KES:</strong> {{ order.total_amount }}<br/>

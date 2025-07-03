@@ -3,8 +3,8 @@ from django.views.decorators.csrf import csrf_exempt
 from django.http import HttpResponse
 from django.utils.http import urlencode
 from twilio.twiml.messaging_response import MessagingResponse
-from .models import User, Order, Subscription, Payment, PendingPayment
-from .forms import UserForm, OrderForm
+from .models import User, Order, Subscription, Payment, PendingPayment, OrderItem
+from .forms import UserForm, OrderForm, OrderItemFormSet
 from django.contrib import messages
 from django.utils import timezone
 from datetime import datetime, timedelta
@@ -59,28 +59,50 @@ def join(request):
 
     return render(request, 'join.html', {'form': form})
 
+# views.py
 def order(request):
-    # This function would handle order-related logic
-    # For now, we can just render a placeholder template
     phone = request.GET.get('phone') or request.POST.get('phone')
     user = User.objects.filter(phone=phone).first()
-    
+
     if not user:
         messages.error(request, "❌ User not found. Please register first.")
-        return redirect('join')  # Or wherever you handle new users
+        return redirect('join')
 
     if request.method == 'POST':
         form = OrderForm(request.POST)
-        if form.is_valid():
+        formset = OrderItemFormSet(request.POST, queryset=OrderItem.objects.none())
+
+        if form.is_valid() and formset.is_valid():
             order = form.save(commit=False)
-            order.user = user  # Set the user using the phone
-            order.save()  # order_date is auto-set by auto_now_add
-            messages.success(request, "✅ Order placed successfully!")
-            return redirect(f'/order_list?phone={phone}')  # or your own confirmation page
+            order.user = user
+            order.status = request.POST.get('status')
+
+            total = 0
+            for item_form in formset:
+                item = item_form.save(commit=False)
+                item.order = order
+                total += item.price * item.quantity
+            order.total_amount = total
+
+            order.save()  # ✅ Save only AFTER total_amount is set
+
+            for item_form in formset:
+                item = item_form.save(commit=False)
+                item.order = order
+                item.save()
+
+            return redirect(f"/order_list?phone={phone}")
+
     else:
         form = OrderForm()
+        formset = OrderItemFormSet(queryset=OrderItem.objects.none())
 
-    return render(request, 'order.html', {'form': form, 'phone': phone})
+    return render(request, 'order.html', {
+        'form': form,
+        'formset': formset,
+        'phone': phone
+    })
+
 def order_list(request):
     phone = request.GET.get('phone')
     user = User.objects.filter(phone=phone).first()
@@ -132,28 +154,25 @@ from reportlab.lib.pagesizes import A5
 
 def order_receipt(request, order_id):
     order = Order.objects.get(id=order_id)
+    items = OrderItem.objects.filter(order=order)
+
+    # Format product details like "Spanner (1), Brake Fluid (2)"
+    product_details = ", ".join(f"{item.product_name} ({item.quantity})" for item in items)
 
     buf = io.BytesIO()
-
-    # Use A5 page size
     page_width, page_height = A5
     c = canvas.Canvas(buf, pagesize=A5, bottomup=0)
 
-    # Draw border
     margin = 30
     c.setStrokeColorRGB(0.2, 0.2, 0.2)
     c.setLineWidth(1.2)
     c.rect(margin, margin, page_width - 2 * margin, page_height - 2 * margin)
 
-    # Text object
     textob = c.beginText()
     textob.setFont("Helvetica", 7)
-
-    # Start near top with reduced vertical space
     start_y = margin + 40
     textob.setTextOrigin(margin + 7, start_y)
 
-    # Center alignment helper
     def center_line(text, font_size=7, bold=False):
         font = "Helvetica-Bold" if bold else "Helvetica"
         c.setFont(font, font_size)
@@ -161,16 +180,15 @@ def order_receipt(request, order_id):
         x = (page_width - text_width) / 2
         y = textob.getY()
         c.drawString(x, y, text)
-        textob.moveCursor(0, 6)  # Reduced line height
+        textob.moveCursor(0, 6)
 
-    # Header and details
     center_line("🧾 KaziFlow - Order Receipt", 12, bold=True)
     center_line("-----------------------------", 10)
 
     details = [
         f"Order ID: {order.id}",
         f"Customer: {order.customer_name}",
-        f"Product: {order.product_name}",
+        f"Products: {product_details}",
         f"Status: {order.status}",
         f"Amount: KES {order.total_amount}",
         f"Date: {order.order_date.strftime('%Y-%m-%d %H:%M')}",
@@ -182,14 +200,12 @@ def order_receipt(request, order_id):
         is_bold = line.startswith("Sold by:")
         center_line(line, 10, bold=is_bold)
 
-    # Draw and return
     c.drawText(textob)
     c.showPage()
     c.save()
     buf.seek(0)
 
     return FileResponse(buf, as_attachment=True, filename=f"receipt_order_{order.customer_name}.pdf")
-
 def filter_orders(request):
     phone = request.GET.get('phone')
     user = User.objects.filter(phone=phone).first()
