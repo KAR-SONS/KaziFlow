@@ -28,7 +28,7 @@ DEBUG = True
 ALLOWED_HOSTS = [
     'localhost',
     '127.0.0.1',
-    '7d06-196-96-168-243.ngrok-free.app',  # your ngrok URL
+    '681c-196-96-168-243.ngrok-free.app',  # your ngrok URL
 ]
 
 
@@ -128,7 +128,7 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 CSRF_TRUSTED_ORIGINS = [
-    'https://7d06-196-96-168-243.ngrok-free.app',
+    'https://681c-196-96-168-243.ngrok-free.app',
 ]
 
 PESAPAL_IPN_ID = '9560974d-3411-429d-96e8-dba286c16ed6'
