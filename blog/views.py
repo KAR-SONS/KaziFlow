@@ -45,7 +45,7 @@ def join(request):
                 )
 
             # ✅ Redirect to WhatsApp with a message
-            message = f"Thanks for signing up {user.username}! You have a 3-day free trial. Start placing orders by texting me here."
+            message = f"Thanks for signing up {user.username}! You have a 3-day free trial.You can create Orders,Filter your orders for weekly/monthly sales and generate receipts.Start placing orders by texting me here."
             encoded_message = urlencode({'text': message})
             whatsapp_number = '14155238886'  # Replace with your Twilio sandbox number
 
