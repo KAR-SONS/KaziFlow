@@ -127,7 +127,7 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 CSRF_TRUSTED_ORIGINS = [
-    'kaziflow.onrender.com',
+    'https://kaziflow.onrender.com',
 ]
 
 PESAPAL_IPN_ID = '9560974d-3411-429d-96e8-dba286c16ed6'
