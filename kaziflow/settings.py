@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 
 from pathlib import Path
 from decouple import config
+import dj_database_url
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -29,7 +30,7 @@ DEBUG = True
 ALLOWED_HOSTS = [
     'localhost',
     '127.0.0.1',
-    '8128-196-96-168-243.ngrok-free.app',  # your ngrok URL
+    'kaziflow.onrender.com', 
 ]
 
 
@@ -80,10 +81,7 @@ WSGI_APPLICATION = 'kaziflow.wsgi.application'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    'default': dj_database_url.parse(config('DATABASE_URL'))
 }
 
 
@@ -129,7 +127,10 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 CSRF_TRUSTED_ORIGINS = [
-    'https://8128-196-96-168-243.ngrok-free.app',
+    'kaziflow.onrender.com',
 ]
 
 PESAPAL_IPN_ID = '9560974d-3411-429d-96e8-dba286c16ed6'
+
+import django_heroku
+django_heroku.settings(locals())
