@@ -24,7 +24,7 @@ class Command(BaseCommand):
             to_whatsapp = f'whatsapp:+{phone}'
             message = (
                 f"🕒 Hello {sub.user.username}, your KaziFlow subscription will expire on {sub.end_date.strftime('%Y-%m-%d')}."
-                f"\nPlease renew here:https://8128-196-96-168-243.ngrok-free.app/start_subscription?phone={phone}"
+                f"\nPlease renew here:https://kaziflow.onrender.com/start_subscription?phone={phone}"
             )
             try:
                 client.messages.create(body=message, from_=from_whatsapp, to=to_whatsapp)
