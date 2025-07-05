@@ -264,7 +264,7 @@ def whatsapp_webhook(request):
         if not user:
             resp.message(
                 f"👋 Welcome! You're new here.\n"
-                f"Please sign up here:https://681c-196-96-168-243.ngrok-free.app/join?phone={phone}"
+                f"Please sign up here:https://8128-196-96-168-243.ngrok-free.app/join?phone={phone}"
             )
         else:
             # ✅ Check user's subscription
@@ -277,14 +277,14 @@ def whatsapp_webhook(request):
                 if has_access:
                     resp.message(
                         f"Here are your options:"
-                        f"\n1. Create Order: https://681c-196-96-168-243.ngrok-free.app/order?phone={phone}"
-                        f"\n2. View Sales: https://681c-196-96-168-243.ngrok-free.app/order_list?phone={phone}"
+                        f"\n1. Create Order: https://8128-196-96-168-243.ngrok-free.app/order?phone={phone}"
+                        f"\n2. View Sales: https://8128-196-96-168-243.ngrok-free.app/order_list?phone={phone}"
                         f"\n3. Pay for Subscription"
                     )
                 else:
                     resp.message(
                         "❌ Your subscription is inactive or expired.\n"
-                        "Please pay here to continue: https://681c-196-96-168-243.ngrok-free.app/start_subscription?phone=" + phone
+                        "Please pay here to continue: https://8128-196-96-168-243.ngrok-free.app/start_subscription?phone=" + phone
                     )
 
             elif message_body == '3':
@@ -294,7 +294,7 @@ def whatsapp_webhook(request):
                 else:
                     resp.message(
                         "❌ Your subscription is inactive or expired.\n"
-                        "Pay here to activate: https://681c-196-96-168-243.ngrok-free.app/start_subscription?phone=" + phone
+                        "Pay here to activate: https://8128-196-96-168-243.ngrok-free.app/start_subscription?phone=" + phone
                     )
 
             else:
@@ -365,3 +365,13 @@ def mark_as_paid(request):
         order.save()
         messages.success(request, f"✅ Order for {order.customer_name} marked as paid.")
         return redirect(f'/order_list?phone={order.user.phone}')
+
+@csrf_exempt 
+def delete_order(request):
+    if request.method == 'POST':
+        order_id = request.POST.get('order_id')
+        order = get_object_or_404(Order, id=order_id)
+        order.delete()
+        messages.success(request, f"✅ Order for {order.customer_name} deleted successfully.")
+        return redirect(f'/order_list?phone={order.user.phone}')
+    return HttpResponse("❌ Invalid request method", status=405)

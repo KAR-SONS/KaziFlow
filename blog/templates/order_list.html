@@ -33,10 +33,17 @@
       <strong>KES:</strong> {{ order.total_amount }}<br/>
       <strong>Time:</strong> {{ order.order_date|date:"H:i" }}<br/>
       <br/>
+      <div class="d-flex justify-content-between">
       <form method="GET" action="{% url 'order_receipt' order.id %}">
         <button type="submit" class="btn btn-primary">Send Receipt</button>
       </form>
-      
+
+      <form method="POST" action="{% url 'delete_order' %}">
+        {% csrf_token %}
+        <input type="hidden" name="order_id" value="{{ order.id }}">
+        <button type="submit" class="btn btn-danger">Delete Order</button>
+      </form>
+      </div>
       <hr/>
     {% endfor %}
     <p style="color: green;"><strong>Total Paid:</strong> KES {{ total_paid }}</p>
