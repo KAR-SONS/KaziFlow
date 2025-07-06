@@ -14,6 +14,7 @@ from .pesapal import get_access_token
 from django.urls import reverse
 from django.utils.timezone import make_aware
 import logging
+from django.contrib.auth.models import User
 
 logger = logging.getLogger(__name__)
 
@@ -24,10 +25,18 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch
 
+def landing(request):
+    # Render the landing page template
+    return render(request, 'landing.html')
 def home(request):
     # Example of querying the User model
     all_users = User.objects.all()
     return render(request, 'home.html', {'all': all_users})
+
+def create_admin(request):
+    if not User.objects.filter(username='admin').exists():
+        User.objects.create_superuser('admin', 'admin@example.com', 'yourpassword123')
+    return HttpResponse("Superuser created!")
 
 def join(request):
     if request.method == 'POST':
@@ -141,7 +150,7 @@ def start_subscription(request):
         return HttpResponse("User not found")
 
     email = user.email
-    amount = 20
+    amount = 250
     callback_url = request.build_absolute_uri(reverse('pesapal_callback'))
 
     try:
