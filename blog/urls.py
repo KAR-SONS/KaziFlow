@@ -16,5 +16,4 @@ urlpatterns = [
    path('filter_orders/', views.filter_orders, name='filter_orders'),
    path('delete_order/', views.delete_order, name='delete_order'),
     path('admin/', admin.site.urls),
-   path('create_admin/', views.create_admin, name='create_admin'),
 ]

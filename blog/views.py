@@ -33,11 +33,6 @@ def home(request):
     all_users = User.objects.all()
     return render(request, 'home.html', {'all': all_users})
 
-def create_admin(request):
-    if not User.objects.filter(username='quincy').exists():
-        User.objects.create_superuser('quincy', 'mwastech93@gmail.com', 'Jones123')
-    return HttpResponse("Superuser created!")
-
 def join(request):
     if request.method == 'POST':
         form = UserForm(request.POST)
