@@ -14,7 +14,6 @@ from .pesapal import get_access_token
 from django.urls import reverse
 from django.utils.timezone import make_aware
 import logging
-from django.contrib.auth.models import User
 
 logger = logging.getLogger(__name__)
 
