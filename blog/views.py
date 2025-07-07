@@ -307,7 +307,7 @@ def filter_orders(request):
         'start_date': start_date,
         'end_date': end_date,
     })
-@csrf_exempt
+'''@csrf_exempt
 def whatsapp_webhook(request):
     if request.method != 'POST':
         return HttpResponse("Invalid request", status=400)
@@ -401,7 +401,20 @@ def whatsapp_webhook(request):
     logger.warning("FINAL XML RESPONSE: %s", xml_response)
     return HttpResponse(xml_response, content_type='application/xml')
 
-    # return HttpResponse(str(resp), content_type='application/xml')
+    # return HttpResponse(str(resp), content_type='application/xml')'''
+
+@csrf_exempt
+def whatsapp_webhook(request):
+    from twilio.twiml.messaging_response import MessagingResponse
+    from django.http import HttpResponse
+
+    if request.method == 'POST':
+        resp = MessagingResponse()
+        resp.message("✅ Webhook is working.")
+        return HttpResponse(str(resp), content_type='application/xml')
+
+    return HttpResponse("Invalid request", status=400)
+
 
 @csrf_exempt
 def pesapal_callback(request):
