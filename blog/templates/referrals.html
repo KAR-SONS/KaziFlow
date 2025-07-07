@@ -2,6 +2,7 @@
 
 <h2>Referrals by {{ referrer.username }}</h2>
 
+{% block content %}
 <table class="table">
   <thead>
     <tr>
@@ -28,3 +29,4 @@
     {% endfor %}
   </tbody>
 </table>
+{% endblock %}

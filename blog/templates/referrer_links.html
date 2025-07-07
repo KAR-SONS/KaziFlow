@@ -1,4 +1,6 @@
 {% extends "base.html" %}
+
+{% block content %}
 <h2>Hi {{ referrer.username }} 👋</h2>
 
 <p>Here is your unique referral link to share:</p>
@@ -14,3 +16,4 @@
   <strong>Your Referrals List:</strong><br/>
   <code>{{ referrals_list_link }}</code>
 </div>
+{% endblock %}
