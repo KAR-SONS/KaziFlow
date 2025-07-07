@@ -97,12 +97,19 @@ def referral_report(request, referrer_id):
 def referrer_links(request, referrer_id):
     referrer = get_object_or_404(User, id=referrer_id)
 
-    referral_link = f"https://kaziflow.onrender.com/join?phone=&ref={referrer.username}"
     referrals_list_link = f"https://kaziflow.onrender.com/referrals/{referrer.id}"
+    ref_code = referrer.username
+    message = (
+        f"👋 Join KaziFlow and manage your sales with ease.\n"
+        f"To start your free trial, just message our bot here 👇\n\n"
+        f"https://wa.me/14155238886?text=join+ref={ref_code}"
+    )
+    whatsapp_share_link = f"https://wa.me/?{urlencode({'text': message})}"
+
 
     return render(request, 'referrer_links.html', {
         'referrer': referrer,
-        'referral_link': referral_link,
+        'whatsapp_share_link': whatsapp_share_link,
         'referrals_list_link': referrals_list_link
     })
 # views.py
@@ -295,60 +302,93 @@ def filter_orders(request):
 def whatsapp_webhook(request):
     if request.method == 'POST':
         logger.warning("RAW POST: %s", request.POST.dict())
+
         from_number = request.POST.get('From')
-        message_body = request.POST.get('Body')
+        message_body = request.POST.get('Body', '').strip().lower()
 
         if not from_number or not message_body:
             return HttpResponse("❌ Missing data", status=400)
 
-        message_body = message_body.strip().lower()
         phone = from_number.replace("whatsapp:", "").replace("+", "")
-        user = User.objects.filter(phone=phone).first()
-
         resp = MessagingResponse()
 
+        # 🔍 Try to find user
+        user = User.objects.filter(phone=phone).first()
+
+        # 📦 Handle referral signup
+        if not user and message_body.startswith("join"):
+            # Expected format: "join ref=username"
+            ref_code = None
+            for part in message_body.split():
+                if part.startswith("ref="):
+                    ref_code = part.split("=")[1]
+
+            referrer = User.objects.filter(username=ref_code, is_referrer=True).first() if ref_code else None
+
+            # Auto-generate user account
+            user = User.objects.create(
+                phone=phone,
+                username=f"user_{phone[-4:]}",
+                email=f"{phone}@kaziflow.com",
+                password="defaultpass",
+                referrer=referrer
+            )
+
+            Subscription.objects.create(
+                user=user,
+                start_date=timezone.now(),
+                end_date=timezone.now() + timedelta(days=3),
+                status='active'
+            )
+
+            ref_text = f" referred by {referrer.username}" if referrer else ""
+            resp.message(f"🎉 Welcome to KaziFlow! You’ve been signed up for a 3-day trial{ref_text}. Type *help* to get started.")
+            return HttpResponse(str(resp), content_type='application/xml')
+
+        # 🔁 Existing user logic
         if not user:
             resp.message(
                 f"👋 Welcome! You're new here.\n"
-                f"Please sign up here:https://kaziflow.onrender.com/join?phone={phone}"
+                f"To start, message me like: *join ref=USERNAME*"
             )
-        else:
-            # ✅ Check user's subscription
-            subscription = Subscription.objects.filter(user=user).first()
-            now = timezone.now()
+            return HttpResponse(str(resp), content_type='application/xml')
 
-            has_access = subscription and subscription.status == 'active' and subscription.end_date > now
+        # ✅ Check subscription
+        subscription = Subscription.objects.filter(user=user).first()
+        now = timezone.now()
+        has_access = subscription and subscription.status == 'active' and subscription.end_date > now
 
-            if message_body == 'help':
-                if has_access:
-                    resp.message(
-                        f"Here are your options:"
-                        f"\n1. Create Order: https://kaziflow.onrender.com/order?phone={phone}"
-                        f"\n2. View Sales: https://kaziflow.onrender.com/order_list?phone={phone}"
-                        f"\n3. Pay for Subscription"
-                    )
-                else:
-                    resp.message(
-                        "❌ Your subscription is inactive or expired.\n"
-                        "Please pay here to continue: https://kaziflow.onrender.com/start_subscription?phone=" + phone
-                    )
-
-            elif message_body == '3':
-                if has_access:
-                    end_date_formatted = subscription.end_date.strftime('%Y-%m-%d')
-                    resp.message(f"✅ Your subscription is active until {end_date_formatted}.")
-                else:
-                    resp.message(
-                        "❌ Your subscription is inactive or expired.\n"
-                        "Pay here to activate: https://kaziflow.onrender.com/start_subscription?phone=" + phone
-                    )
-
+        # 🧭 Handle commands
+        if message_body == 'help':
+            if has_access:
+                resp.message(
+                    f"Here are your options:"
+                    f"\n1. Create Order: https://kaziflow.onrender.com/order?phone={phone}"
+                    f"\n2. View Sales: https://kaziflow.onrender.com/order_list?phone={phone}"
+                    f"\n3. View Subscription: type *3*"
+                )
             else:
-                resp.message("👋 Welcome back! Type 'help' for options.")
+                resp.message(
+                    "❌ Your subscription is inactive or expired.\n"
+                    f"Renew here: https://kaziflow.onrender.com/start_subscription?phone={phone}"
+                )
+
+        elif message_body == '3':
+            if has_access:
+                end_date = subscription.end_date.strftime('%Y-%m-%d')
+                resp.message(f"✅ Your subscription is active until {end_date}.")
+            else:
+                resp.message(
+                    "❌ Your subscription is inactive.\n"
+                    f"Renew here: https://kaziflow.onrender.com/start_subscription?phone={phone}"
+                )
+
+        else:
+            resp.message("👋 Welcome back to KaziFlow. Type *help* to see what you can do.")
+
         return HttpResponse(str(resp), content_type='application/xml')
 
     return HttpResponse("Invalid request", status=400)
-
 @csrf_exempt
 def pesapal_callback(request):
     tracking_id = request.GET.get('OrderTrackingId')
