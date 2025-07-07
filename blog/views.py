@@ -114,6 +114,7 @@ def referrer_links(request, referrer_id):
 
     return render(request, 'referrer_links.html', {
         'referrer': referrer,
+        'whatsapp_direct_link': whatsapp_direct_link,
         'whatsapp_share_link': whatsapp_share_link,
         'referrals_list_link': referrals_list_link
     })
