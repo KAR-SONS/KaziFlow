@@ -64,7 +64,7 @@ def join(request):
                 "Start placing orders by texting me here."
             )
             encoded_message = urlencode({'text': message})
-            whatsapp_number = '14155238886'
+            whatsapp_number = '15557906367'
 
             wa_link = f"https://wa.me/{whatsapp_number}/?{encoded_message}"
             return redirect(wa_link)
@@ -103,7 +103,7 @@ def referrer_links(request, referrer_id):
 
     # Direct link that user should click to start WhatsApp conversation
     ref_message = f"join ref={ref_code}"
-    whatsapp_direct_link = f"https://wa.me/14155238886?{urlencode({'text': ref_message})}"
+    whatsapp_direct_link = f"https://wa.me/15557906367?{urlencode({'text': ref_message})}"
 
     # Optional: prewritten WhatsApp share message with friendly text
     message = (

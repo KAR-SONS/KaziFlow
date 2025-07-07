@@ -16,7 +16,7 @@ class Command(BaseCommand):
 
         account_sid = config("TWILIO_ACCOUNT_SID")
         auth_token = config("TWILIO_AUTH_TOKEN")
-        from_whatsapp = 'whatsapp:+14155238886'
+        from_whatsapp = 'whatsapp:+15557906367'
         client = Client(account_sid, auth_token)
 
         for sub in expiring_subs:
