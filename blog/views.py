@@ -33,12 +33,22 @@ def home(request):
     return render(request, 'home.html', {'all': all_users})
 
 def join(request):
+    ref = request.GET.get('ref')
+    phone = request.GET.get('phone', '')
+
+    # Get the referrer user if it exists and is valid
+    referrer = None
+    if ref:
+        referrer = User.objects.filter(username=ref, is_referrer=True).first()
+
     if request.method == 'POST':
         form = UserForm(request.POST)
         if form.is_valid():
-            user = form.save()
+            user = form.save(commit=False)
+            user.referrer = referrer  # ✅ Set referrer if available
+            user.save()
 
-            # ✅ Add 3-day trial subscription if one doesn't exist
+            # ✅ Add 3-day trial
             if not Subscription.objects.filter(user=user).exists():
                 Subscription.objects.create(
                     user=user,
@@ -47,21 +57,42 @@ def join(request):
                     status='active'
                 )
 
-            # ✅ Redirect to WhatsApp with a message
-            message = f"Thanks for signing up {user.username}! You have a 3-day free trial.You can create Orders,Filter your orders for weekly/monthly sales and generate receipts.Start placing orders by texting me here."
+            # ✅ WhatsApp message
+            message = (
+                f"Thanks for signing up {user.username}! You have a 3-day free trial. "
+                "You can create Orders, filter for weekly/monthly sales, and generate receipts. "
+                "Start placing orders by texting me here."
+            )
             encoded_message = urlencode({'text': message})
-            whatsapp_number = '14155238886'  # Replace with your Twilio sandbox number
+            whatsapp_number = '14155238886'
 
             wa_link = f"https://wa.me/{whatsapp_number}/?{encoded_message}"
             return redirect(wa_link)
 
         messages.error(request, 'There was an error in your form submission. Please try again.')
     else:
-        phone = request.GET.get('phone', '')
         form = UserForm(initial={'phone': phone})
 
     return render(request, 'join.html', {'form': form})
 
+def referral_report(request, referrer_id):
+    referrer = User.objects.get(id=referrer_id)
+    referrals = referrer.referrals.all()
+
+    report = []
+    for user in referrals:
+        has_paid = Subscription.objects.filter(user=user, status='active').exists()
+        report.append({
+            'username': user.username,
+            'phone': user.phone,
+            'joined': user.created_at,
+            'has_paid': has_paid,
+        })
+
+    return render(request, 'referrals.html', {
+        'referrer': referrer,
+        'report': report,
+    })
 # views.py
 def order(request):
     phone = request.GET.get('phone') or request.POST.get('phone')

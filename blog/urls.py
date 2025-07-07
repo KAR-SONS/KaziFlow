@@ -15,5 +15,7 @@ urlpatterns = [
    path('order_receipt/<int:order_id>/', views.order_receipt, name='order_receipt'),
    path('filter_orders/', views.filter_orders, name='filter_orders'),
    path('delete_order/', views.delete_order, name='delete_order'),
-    path('admin/', admin.site.urls),
+   path('admin/', admin.site.urls),
+   path('referral_report/',views.referral_report,name='referral_report')
+
 ]
