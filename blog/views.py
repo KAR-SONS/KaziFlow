@@ -93,6 +93,18 @@ def referral_report(request, referrer_id):
         'referrer': referrer,
         'report': report,
     })
+
+def referrer_links(request, referrer_id):
+    referrer = get_object_or_404(User, id=referrer_id)
+
+    referral_link = f"https://kaziflow.onrender.com/join?phone=&ref={referrer.username}"
+    referrals_list_link = f"https://kaziflow.onrender.com/referrals/{referrer.id}"
+
+    return render(request, 'referrer_links.html', {
+        'referrer': referrer,
+        'referral_link': referral_link,
+        'referrals_list_link': referrals_list_link
+    })
 # views.py
 def order(request):
     phone = request.GET.get('phone') or request.POST.get('phone')

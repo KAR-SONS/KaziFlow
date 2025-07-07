@@ -16,6 +16,7 @@ urlpatterns = [
    path('filter_orders/', views.filter_orders, name='filter_orders'),
    path('delete_order/', views.delete_order, name='delete_order'),
    path('admin/', admin.site.urls),
-   path('referral_report/',views.referral_report,name='referral_report')
+   path('referral_report/',views.referral_report,name='referral_report'),
+   path('referrer_links/',views.referrer_links, name='referrer_links')
 
 ]

@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+<h2>Hi {{ referrer.username }} 👋</h2>
+
+<p>Here is your unique referral link to share:</p>
+
+<div class="alert alert-info">
+  <strong>Referral Link:</strong><br/>
+  <code>{{ referral_link }}</code>
+</div>
+
+<p>You can also view your referrals at any time here:</p>
+
+<div class="alert alert-success">
+  <strong>Your Referrals List:</strong><br/>
+  <code>{{ referrals_list_link }}</code>
+</div>
