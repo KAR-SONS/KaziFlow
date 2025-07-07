@@ -8,6 +8,11 @@ class User(models.Model):
     password = models.CharField(max_length=128)  # You might use Django's default auth system instead
     created_at = models.DateTimeField(auto_now_add=True)
 
+    # New fields for referrals
+    referrer = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL, related_name='referrals')
+    is_referrer = models.BooleanField(default=False)
+    referrer_paid = models.BooleanField(default=False)  # True when they’ve been rewarded
+
     def __str__(self):
         return self.username
 

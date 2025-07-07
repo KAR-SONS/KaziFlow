@@ -144,7 +144,7 @@ def start_subscription(request):
         return HttpResponse("User not found")
 
     email = user.email
-    amount = 250
+    amount = 800
     callback_url = request.build_absolute_uri(reverse('pesapal_callback'))
 
     try:
