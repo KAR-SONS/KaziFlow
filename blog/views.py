@@ -99,19 +99,26 @@ def referrer_links(request, referrer_id):
 
     referrals_list_link = f"https://kaziflow.onrender.com/referrals/{referrer.id}"
     ref_code = referrer.username
+
+    # Direct link that user should click to start WhatsApp conversation
+    ref_message = f"join ref={ref_code}"
+    whatsapp_direct_link = f"https://wa.me/14155238886?{urlencode({'text': ref_message})}"
+
+    # Optional: prewritten WhatsApp share message with friendly text
     message = (
-        f"👋 Join KaziFlow and manage your sales with ease.\n"
-        f"To start your free trial, just message our bot here 👇\n\n"
-        f"https://wa.me/14155238886?text=join+ref={ref_code}"
+        "👋 Join KaziFlow and manage your sales with ease.\n"
+        "To start your free trial, just message our bot here 👇\n\n"
+        f"{whatsapp_direct_link}"
     )
     whatsapp_share_link = f"https://wa.me/?{urlencode({'text': message})}"
-
 
     return render(request, 'referrer_links.html', {
         'referrer': referrer,
         'whatsapp_share_link': whatsapp_share_link,
         'referrals_list_link': referrals_list_link
     })
+
+
 # views.py
 def order(request):
     phone = request.GET.get('phone') or request.POST.get('phone')
