@@ -397,7 +397,11 @@ def whatsapp_webhook(request):
     else:
         resp.message("🤖 I didn’t understand that. Type *help* to see available commands.")
 
-    return HttpResponse(str(resp), content_type='application/xml')
+    xml_response = str(resp)
+    logger.warning("FINAL XML RESPONSE: %s", xml_response)
+    return HttpResponse(xml_response, content_type='application/xml')
+
+    # return HttpResponse(str(resp), content_type='application/xml')
 
 @csrf_exempt
 def pesapal_callback(request):
