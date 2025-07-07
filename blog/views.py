@@ -307,7 +307,7 @@ def filter_orders(request):
         'start_date': start_date,
         'end_date': end_date,
     })
-'''@csrf_exempt
+@csrf_exempt
 def whatsapp_webhook(request):
     if request.method != 'POST':
         return HttpResponse("Invalid request", status=400)
@@ -323,99 +323,87 @@ def whatsapp_webhook(request):
     phone = from_number.replace("whatsapp:", "").replace("+", "")
     resp = MessagingResponse()
 
-    # Check if user already exists
-    user = User.objects.filter(phone=phone).first()
+    try:
+        user = User.objects.filter(phone=phone).first()
 
-    # 🔰 First-time user must type 'kaziflow' to begin
-    if not user:
-        if message_body == 'kaziflow' or message_body.startswith("join"):
-            ref_code = None
-            if "ref=" in message_body:
-                for part in message_body.split():
-                    if part.startswith("ref="):
-                        ref_code = part.split("=")[1]
+        # New user flow
+        if not user:
+            if message_body == 'kaziflow' or message_body.startswith("join"):
+                ref_code = None
+                if "ref=" in message_body:
+                    for part in message_body.split():
+                        if part.startswith("ref="):
+                            ref_code = part.split("=")[1]
 
-            referrer = User.objects.filter(username=ref_code, is_referrer=True).first() if ref_code else None
+                referrer = User.objects.filter(username=ref_code, is_referrer=True).first() if ref_code else None
 
-            # Create user account
-            user = User.objects.create(
-                phone=phone,
-                username=f"user_{phone[-4:]}",
-                email=f"{phone}@kaziflow.com",
-                password="defaultpass",
-                referrer=referrer
-            )
+                # Create user account
+                user = User.objects.create(
+                    phone=phone,
+                    username=f"user_{phone[-4:]}",
+                    email=f"{phone}@kaziflow.com",
+                    password="defaultpass",
+                    referrer=referrer
+                )
 
-            # Create trial subscription
-            Subscription.objects.create(
-                user=user,
-                start_date=timezone.now(),
-                end_date=timezone.now() + timedelta(days=3),
-                status='active'
-            )
+                # Trial subscription
+                Subscription.objects.create(
+                    user=user,
+                    start_date=timezone.now(),
+                    end_date=timezone.now() + timedelta(days=3),
+                    status='active'
+                )
 
-            ref_text = f" referred by {referrer.username}" if referrer else ""
-            resp.message(f"🎉 Welcome to KaziFlow! You’ve been signed up for a 3-day trial{ref_text}. Type *help* to get started.")
+                ref_text = f" referred by {referrer.username}" if referrer else ""
+                resp.message(f"🎉 Welcome to KaziFlow! You’ve been signed up for a 3-day trial{ref_text}. Type *help* to get started.")
+            else:
+                resp.message("👋 Welcome to KaziFlow!\nTo begin, please type *kaziflow* to sign up.")
+            return HttpResponse(str(resp), content_type='text/xml')
+
+        # Existing user flow
+        subscription = Subscription.objects.filter(user=user).first()
+        now = timezone.now()
+        has_access = subscription and subscription.status == 'active' and subscription.end_date > now
+
+        if message_body == 'help':
+            if has_access:
+                resp.message(
+                    f"Here are your options:"
+                    f"\n1. Create Order: https://kaziflow.onrender.com/order?phone={phone}"
+                    f"\n2. View Sales: https://kaziflow.onrender.com/order_list?phone={phone}"
+                    f"\n3. View Subscription: type *3*"
+                )
+            else:
+                resp.message(
+                    "❌ Your subscription is inactive or expired.\n"
+                    f"Renew here: https://kaziflow.onrender.com/start_subscription?phone={phone}"
+                )
+
+        elif message_body == '3':
+            if has_access:
+                end_date = subscription.end_date.strftime('%Y-%m-%d')
+                resp.message(f"✅ Your subscription is active until {end_date}.")
+            else:
+                resp.message(
+                    "❌ Your subscription is inactive.\n"
+                    f"Renew here: https://kaziflow.onrender.com/start_subscription?phone={phone}"
+                )
+
+        elif message_body in ['hi', 'hello', 'start']:
+            resp.message("👋 To get started, type *help* to see your options.")
+
         else:
-            # Guide them to type the correct message
-            resp.message("👋 Welcome to KaziFlow!\nTo begin, please type *kaziflow* to sign up.")
-        return HttpResponse(str(resp), content_type='application/xml')
+            resp.message("🤖 I didn’t understand that. Type *help* to see available commands.")
 
-    # ✅ At this point, user exists
-    subscription = Subscription.objects.filter(user=user).first()
-    now = timezone.now()
-    has_access = subscription and subscription.status == 'active' and subscription.end_date > now
+        # Final response
+        final_response = str(resp)
+        logger.warning("FINAL XML RESPONSE: %s", final_response)
+        return HttpResponse(final_response, content_type='text/xml')
 
-    # 💬 Command handling
-    if message_body == 'help':
-        if has_access:
-            resp.message(
-                f"Here are your options:"
-                f"\n1. Create Order: https://kaziflow.onrender.com/order?phone={phone}"
-                f"\n2. View Sales: https://kaziflow.onrender.com/order_list?phone={phone}"
-                f"\n3. View Subscription: type *3*"
-            )
-        else:
-            resp.message(
-                "❌ Your subscription is inactive or expired.\n"
-                f"Renew here: https://kaziflow.onrender.com/start_subscription?phone={phone}"
-            )
-
-    elif message_body == '3':
-        if has_access:
-            end_date = subscription.end_date.strftime('%Y-%m-%d')
-            resp.message(f"✅ Your subscription is active until {end_date}.")
-        else:
-            resp.message(
-                "❌ Your subscription is inactive.\n"
-                f"Renew here: https://kaziflow.onrender.com/start_subscription?phone={phone}"
-            )
-
-    elif message_body in ['hi', 'hello', 'start']:
-        resp.message("👋 To get started, type *help* to see your options.")
-
-    else:
-        resp.message("🤖 I didn’t understand that. Type *help* to see available commands.")
-
-    xml_response = str(resp)
-    logger.warning("FINAL XML RESPONSE: %s", xml_response)
-    return HttpResponse(xml_response, content_type='application/xml')
-
-    # return HttpResponse(str(resp), content_type='application/xml')'''
-
-@csrf_exempt
-def whatsapp_webhook(request):
-    from twilio.twiml.messaging_response import MessagingResponse
-    from django.http import HttpResponse
-
-    if request.method == 'POST':
-        resp = MessagingResponse()
-        resp.message("✅ Webhook is working.")
-        return HttpResponse(str(resp), content_type='application/xml')
-
-    return HttpResponse("Invalid request", status=400)
-
-
+    except Exception as e:
+        logger.error("⚠️ Webhook error: %s", str(e))
+        resp.message("⚠️ Sorry, something went wrong. Please try again shortly.")
+        return HttpResponse(str(resp), content_type='text/xml')
 @csrf_exempt
 def pesapal_callback(request):
     tracking_id = request.GET.get('OrderTrackingId')
