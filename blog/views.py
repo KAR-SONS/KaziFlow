@@ -76,22 +76,23 @@ def join(request):
     return render(request, 'join.html', {'form': form})
 
 def referral_report(request, referrer_id):
-    referrer = User.objects.get(id=referrer_id)
+    referrer = get_object_or_404(User, id=referrer_id)
+
+    # Get all users referred by this referrer
     referrals = referrer.referrals.all()
 
-    report = []
+    # Annotate with subscription status
+    referral_data = []
     for user in referrals:
-        has_paid = Subscription.objects.filter(user=user, status='active').exists()
-        report.append({
-            'username': user.username,
-            'phone': user.phone,
-            'joined': user.created_at,
-            'has_paid': has_paid,
+        subscription = Subscription.objects.filter(user=user, status='active').first()
+        referral_data.append({
+            'user': user,
+            'has_paid': bool(subscription)
         })
 
-    return render(request, 'referrals.html', {
+    return render(request, 'referral_report.html', {
         'referrer': referrer,
-        'report': report,
+        'referral_data': referral_data
     })
 
 def referrer_links(request, referrer_id):

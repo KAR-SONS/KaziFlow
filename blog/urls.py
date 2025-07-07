@@ -18,4 +18,5 @@ urlpatterns = [
    path('admin/', admin.site.urls),
    path('referral_report/<int:referrer_id>/', views.referral_report, name='referral_report'),
    path('referrer_links/<int:referrer_id>/', views.referrer_links, name='referrer_links'),
+
 ]

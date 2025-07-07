@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>{{ referrer.username }}'s Referrals</h2>
+
+{% if referral_data %}
+  <table class="table table-bordered">
+    <thead>
+      <tr>
+        <th>Username</th>
+        <th>Phone</th>
+        <th>Email</th>
+        <th>Has Paid?</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in referral_data %}
+        <tr>
+          <td>{{ item.user.username }}</td>
+          <td>{{ item.user.phone }}</td>
+          <td>{{ item.user.email }}</td>
+          <td>
+            {% if item.has_paid %}
+              ✅ Yes
+            {% else %}
+              ❌ No
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% else %}
+  <p>No referrals yet.</p>
+{% endif %}
+
+{% endblock %}
