@@ -325,6 +325,7 @@ def whatsapp_webhook(request):
 
     try:
         user = User.objects.filter(phone=phone).first()
+        logger.warning("USER FOUND: %s", user)
 
         # New user flow
         if not user:
