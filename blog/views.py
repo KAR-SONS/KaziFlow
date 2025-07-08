@@ -314,21 +314,20 @@ def whatsapp_webhook(request):
 
     logger.warning("RAW POST: %s", request.POST.dict())
 
-    from_number = request.POST.get('From')  # e.g., "whatsapp:+254728482191"
+    from_number = request.POST.get('From')
     message_body = request.POST.get('Body', '').strip().lower()
 
     if not from_number or not message_body:
         return HttpResponse("❌ Missing data", status=400)
 
     phone = from_number.replace("whatsapp:", "").replace("+", "")
-    twilio_number = "whatsapp:+15557906367"  # your Twilio number
-
     resp = MessagingResponse()
 
     try:
         user = User.objects.filter(phone=phone).first()
+        logger.warning("USER FOUND: %s", user.username if user else "None")
 
-        # First-time user
+        # New user flow
         if not user:
             if message_body == 'kaziflow' or message_body.startswith("join"):
                 ref_code = None
@@ -339,6 +338,7 @@ def whatsapp_webhook(request):
 
                 referrer = User.objects.filter(username=ref_code, is_referrer=True).first() if ref_code else None
 
+                # Create user
                 user = User.objects.create(
                     phone=phone,
                     username=f"user_{phone[-4:]}",
@@ -355,40 +355,26 @@ def whatsapp_webhook(request):
                 )
 
                 ref_text = f" referred by {referrer.username}" if referrer else ""
-
-                msg = resp.message()
-                msg.from_(twilio_number)
-                msg.body(f"🎉 Welcome to KaziFlow! You’ve been signed up for a 3-day trial{ref_text}. Type *help* to get started.")
-                msg.to(f"whatsapp:+{phone}")
-
+                resp.message(f"🎉 Welcome to KaziFlow! You’ve been signed up for a 3-day trial{ref_text}. Type *help* to get started.")
             else:
-                msg = resp.message()
-                msg.from_(twilio_number)
-                msg.body("👋 Welcome to KaziFlow!\nTo begin, please type *kaziflow* to sign up.")
-                msg.to(f"whatsapp:+{phone}")
-
+                resp.message("👋 Welcome to KaziFlow!\nTo begin, please type *kaziflow* to sign up.")
             return HttpResponse(str(resp), content_type='text/xml')
 
         # Existing user
-        logger.warning("USER FOUND: %s", user.username)
         subscription = Subscription.objects.filter(user=user).first()
         now = timezone.now()
         has_access = subscription and subscription.status == 'active' and subscription.end_date > now
 
-        msg = resp.message()
-        msg.from_(twilio_number)
-        msg.to(f"whatsapp:+{phone}")
-
         if message_body == 'help':
             if has_access:
-                msg.body(
+                resp.message(
                     f"Here are your options:"
                     f"\n1. Create Order: https://kaziflow.onrender.com/order?phone={phone}"
                     f"\n2. View Sales: https://kaziflow.onrender.com/order_list?phone={phone}"
                     f"\n3. View Subscription: type *3*"
                 )
             else:
-                msg.body(
+                resp.message(
                     "❌ Your subscription is inactive or expired.\n"
                     f"Renew here: https://kaziflow.onrender.com/start_subscription?phone={phone}"
                 )
@@ -396,29 +382,28 @@ def whatsapp_webhook(request):
         elif message_body == '3':
             if has_access:
                 end_date = subscription.end_date.strftime('%Y-%m-%d')
-                msg.body(f"✅ Your subscription is active until {end_date}.")
+                resp.message(f"✅ Your subscription is active until {end_date}.")
             else:
-                msg.body(
+                resp.message(
                     "❌ Your subscription is inactive.\n"
                     f"Renew here: https://kaziflow.onrender.com/start_subscription?phone={phone}"
                 )
 
         elif message_body in ['hi', 'hello', 'start']:
-            msg.body("👋 To get started, type *help* to see your options.")
+            resp.message("👋 To get started, type *help* to see your options.")
 
         else:
-            msg.body("🤖 I didn’t understand that. Type *help* to see available commands.")
+            resp.message("🤖 I didn’t understand that. Type *help* to see available commands.")
 
-        logger.warning("FINAL XML RESPONSE: %s", str(resp))
-        return HttpResponse(str(resp), content_type='text/xml')
+        xml_response = str(resp)
+        logger.warning("FINAL XML RESPONSE: %s", xml_response)
+        return HttpResponse(xml_response, content_type='text/xml')
 
     except Exception as e:
         logger.error("⚠️ Webhook error: %s", str(e))
-        msg = resp.message()
-        msg.from_(twilio_number)
-        msg.to(f"whatsapp:+{phone}")
-        msg.body("⚠️ Sorry, something went wrong. Please try again shortly.")
+        resp.message("⚠️ Sorry, something went wrong. Please try again shortly.")
         return HttpResponse(str(resp), content_type='text/xml')
+
 
 
 @csrf_exempt
