@@ -312,10 +312,25 @@ def whatsapp_webhook(request):
     if request.method != 'POST':
         return HttpResponse("Invalid request", status=400)
 
-    logger.warning("RAW POST: %s", request.POST.dict())
+    from_number = None
+    message_body = ""
 
-    from_number = request.POST.get('From')
-    message_body = request.POST.get('Body', '').strip().lower()
+    try:
+        if request.headers.get('Content-Type') == 'application/json':
+            import json
+            data = json.loads(request.body)
+            # Drill into the nested JSON payload
+            parameters = data.get("webhook", {}).get("request", {}).get("parameters", {})
+            from_number = parameters.get("From")
+            message_body = parameters.get("Body", "").strip().lower()
+            logger.warning("Parsed JSON from_number: %s, message_body: %s", from_number, message_body)
+        else:
+            from_number = request.POST.get('From')
+            message_body = request.POST.get('Body', '').strip().lower()
+            logger.warning("Parsed FORM from_number: %s, message_body: %s", from_number, message_body)
+    except Exception as e:
+        logger.error("❌ Error parsing request: %s", str(e))
+        return HttpResponse("❌ Failed to parse message", status=500)
 
     if not from_number or not message_body:
         return HttpResponse("❌ Missing data", status=400)
